@@ -1,0 +1,178 @@
+program SheepShearer;
+{$DEFINE SMART}
+{$i srl-6/srl.simba}
+{$I SPS/lib/SPS-RS3.Simba}
+
+var
+  lc, rc, loadsDone: integer;
+
+function getPrice(theItem:string):integer; //credits goes to The Mayor
+var
+  thePage, thePrice:string;
+begin
+  thePage := getPage('http://runescape.wikia.com/wiki/Exchange:' + theItem);
+  thePrice := between('GEPrice">', '</span>', thePage);
+  thePrice := replace(thePrice, ',', '', [rfReplaceAll]);
+  result := strToIntDef(thePrice, 0);
+end;
+
+function clickSheep(): boolean;
+var
+  x, y: integer;
+
+begin
+  if  mainScreen.findObject(x, y, 16777215, 0, ['Shear Sheep'], MOUSE_RIGHT) then
+  begin
+    writeln('Right-clicked Sheep - Selecting to Shear Sheep');
+    inc(rc);
+    result := chooseOption.select(['hear Shee']);
+    inc(lc);
+  end;
+end;
+
+function atBank(): boolean;
+var
+  p: TPoint;
+
+begin
+  result := minimap.findSymbol(p,  MM_SYMBOL_BANK, minimap.getBounds());
+end;
+
+Function atPen(): boolean;
+var
+  x, y: integer;
+  p: TPoint;
+begin
+  //result := mainScreen.findObject(x, y, 16777215, 0, ['Shear Sheep'], MOUSE_MOVE)
+  result := minimap.findSymbol(p,  MM_SYMBOL_SLAYER_MASTER, minimap.getBounds());
+end;
+
+Function Shear(): boolean;
+begin
+  while (not tabBackPack.isFull()) do
+  begin
+    if (clickSheep()) then
+    begin
+      writeln('Waiting while shearing');
+      tabBackPack.waitForShift(5000);
+    end else
+    begin
+      writeln('Cannot find Sheep, exiting');
+      exit(false);
+    end;
+  end;
+
+  result := true;
+end;
+
+Procedure Antiban();
+begin
+  begin
+    Case Random(30000) Of
+      1: HoverSkill(random(26));
+      2: Wait(2500 + random(4500));
+      3: PickUpMouse;
+      4: mouseoffclient(off_client_random);
+      5: Boredhuman;
+      6: mousemovingobject;
+    end;
+  end;
+end;
+
+Procedure runToBank();
+var
+  pathToBank: TPointArray;
+
+begin
+  if (not tabBackPack.isFull()) then
+    exit;
+  pathToBank := [Point(423, 254), Point(393, 314), Point(331, 320), Point(281, 306), Point(250, 303)];
+
+  if SPS.walkPath(pathToBank) then
+    minimap.waitPlayerMoving()
+  else
+    writeln('Failed to run to the bank');
+end;
+
+Procedure runToPen();
+var
+  pathToPen: TPointArray;
+  p: TPoint;
+
+begin
+  if (tabBackPack.isFull()) then
+    exit;
+  pathToPen := [Point(240, 303), Point(281, 306), Point(331, 320), Point(393, 314), Point(423, 260)];
+  if SPS.walkPath(pathToPen) then
+    minimap.waitPlayerMoving()
+  else
+    writeln('Failed to run to the Pen');
+end;
+
+function useBank(): boolean;
+var
+  x, y: integer;
+  TPA: TPointArray;
+begin
+  if mainScreen.findObject(x, y, 6236985, 7, ['Bank Bank'], MOUSE_RIGHT) then
+  result := chooseOption.select(['Bank Bank']);
+end;
+
+procedure progressReport();
+var
+  clicks, price, wool, profit, profitPerHour: integer;
+  success: extended;
+begin
+  clicks := lc;
+  price := getPrice('Wool');
+  wool := (loadsDone * 28);
+  success := (wool / lc);
+  profit := (wool * price);
+  profitPerHour := round((profit * 60) / (getTimeRunning() / 60000));
+
+  writeLn('========================================================');
+  writeLn('BlitzKriegers SheepShearer');
+  writeLn('Time Run: ' + timeRunning);
+  writeLn('Clicks: ' + intToStr(clicks));
+  writeLn('Price: ' + intToStr(price));
+  writeln('Wool: ' + intToStr(wool));
+  writeLn('Success (%): ' + ToStr(success));
+  writeln('Profit: ' + intToStr(profit));
+  writeLn('Per Hour: ' + intToStr(profitPerHour));
+  writeLn('========================================================');
+end;
+
+Procedure mainLoop();
+begin
+  if bankScreen.isOpen(2000) then
+  begin
+      bankScreen.clickButton(BANK_BUTTON_PRESET_1);
+      inc(loadsDone)
+  end
+  else if tabBackPack.isFull() and (atBank() = false) then
+    runToBank()
+  else if (atBank() = true) and tabBackPack.isFull() then
+    useBank()
+  else if (not tabBackPack.isFull()) and (atBank() = true) then
+    runToPen()
+  else if (Shear() = false) then
+    antiBan()
+  else if (atPen()) then
+    Shear();
+end;
+
+begin
+  smartEnableDrawing := true;
+  disableSRLDebug := true;
+  clearDebug();
+  setupSRL();
+
+
+  SPS.setup('SheepShearerSPS', RUNESCAPE_OTHER);
+  repeat
+    mainLoop();
+    if lc > 1 then
+      ProgressReport();
+    wait(randomRange(400,600));
+  until false;
+end.
