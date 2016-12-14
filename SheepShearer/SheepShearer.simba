@@ -3,8 +3,30 @@ program SheepShearer;
 {$i srl-6/srl.simba}
 {$I SPS/lib/SPS-RS3.Simba}
 
+const
+Version = 1.0;
+
 var
   lc, rc, loadsDone: integer;
+
+procedure getUpdate();
+var
+  newFile: Integer;
+  newVer: Extended;
+begin
+  newVer := strToFloat(getPage('https://github.com/BlitzKriegers/Scripts/blob/master/SheepShearer/Version.txt'));
+  printf('Current script Version: %f || Online script Version: %f', [Version, newVer]);
+
+  if newVer > Version then
+  begin
+    printf('Updating SheepShearer.simba from Version %f to %f', [Version, newVer]);
+    newFile := rewriteFile(scriptPath + 'SheepShearer.simba', false);
+    writeFileString(newFile, getPage('https://github.com/BlitzKriegers/Scripts/blob/master/SheepShearer/SheepShearer.simba'));
+    closeFile(newFile);
+    print('Please reopen this file');
+    terminateScript();
+  end;
+end;
 
 function getPrice(theItem:string):integer; //credits goes to The Mayor
 var
@@ -165,6 +187,7 @@ begin
   smartEnableDrawing := true;
   disableSRLDebug := true;
   clearDebug();
+  getUpdate();
   setupSRL();
 
 
